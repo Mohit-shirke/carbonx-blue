@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  # ─── PostgreSQL ────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: carbonx_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       carbonx_db
+      POSTGRES_USER:     carbonx
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carbonx -d carbonx_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend API ───────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: carbonx_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV:              development
+      PORT:                  4000
+      DATABASE_URL:          postgresql://carbonx:password@postgres:5432/carbonx_db
+      JWT_SECRET:            dev_jwt_secret_change_in_production_32chars_minimum
+      JWT_EXPIRES_IN:        7d
+      FRONTEND_URL:          http://localhost:3000
+      STRIPE_SECRET_KEY:     ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-whsec_placeholder}
+      RELAYER_PRIVATE_KEY:   ${RELAYER_PRIVATE_KEY:-0x0000000000000000000000000000000000000000000000000000000000000001}
+      CONTRACT_ADDRESS:      ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+      POLYGON_AMOY_RPC:      https://rpc-amoy.polygon.technology/
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # ─── Frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: carbonx_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL:            http://localhost:4000
+      NEXT_PUBLIC_WC_PROJECT_ID:      ${NEXT_PUBLIC_WC_PROJECT_ID:-your_wc_project_id}
+      NEXT_PUBLIC_STRIPE_PK:          ${NEXT_PUBLIC_STRIPE_PK:-pk_test_placeholder}
+      NEXT_PUBLIC_CONTRACT_ADDRESS:   ${CONTRACT_ADDRESS:-0x0000000000000000000000000000000000000000}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  postgres_data:
+    driver: local
