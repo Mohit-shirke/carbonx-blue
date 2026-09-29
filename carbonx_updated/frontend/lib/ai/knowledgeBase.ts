@@ -27,8 +27,8 @@ export const EMISSIONS_EQUIVALENTS = {
 } as const
 
 export const PLATFORM_FACTS = {
-  chainName:'Polygon Amoy Testnet', chainId:80002, tokenStandard:'ERC-1155',
-  rpcUrl:'https://rpc-amoy.polygon.technology/', explorerUrl:'https://www.oklink.com/amoy',
+  chainName:'Polygon Mainnet', chainId:137, tokenStandard:'ERC-1155',
+  rpcUrl:'https://polygon-rpc.com', explorerUrl:'https://polygonscan.com',
   burnAddress:'0x0000000000000000000000000000000000000000',
   validators:['Verra','CCTS','Gold Standard'] as const,
   satelliteSource:'Copernicus Sentinel-2', satelliteResolution:'10 metres per pixel',

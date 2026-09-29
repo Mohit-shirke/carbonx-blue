@@ -1,50 +1,75 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+/**
+ * CarbonX Hardhat Configuration — Polygon PoS Mainnet
+ * 
+ * Deploy command:
+ *   npx hardhat run scripts/deploy.js --network polygon
+ *
+ * Verify on Polygonscan:
+ *   npx hardhat verify --network polygon YOUR_CONTRACT_ADDRESS
+ *
+ * Gas estimation:
+ *   npx hardhat run scripts/estimateGas.js --network polygon
+ */
 
-/** @type import('hardhat/config').HardhatUserConfig */
+require('@nomicfoundation/hardhat-toolbox')
+require('dotenv').config({ path: '../backend/.env' })
+
+const rawKey = process.env.RELAYER_PRIVATE_KEY || ''
+const isValidPrivateKey = /^0x?[a-fA-F0-9]{64}$/.test(rawKey)
+const accounts = isValidPrivateKey
+  ? [rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`]
+  : []
+
+const POLYGON_RPC   = process.env.POLYGON_RPC || 'https://polygon-rpc.com'
+const POLYGONSCAN_KEY = process.env.POLYGONSCAN_API_KEY || ''
+
 module.exports = {
   solidity: {
-    version: "0.8.24", 
+    version: '0.8.24',
     settings: {
-      optimizer: { enabled: true, runs: 200 },
-      viaIR: true,
-      evmVersion: "cancun", // 👈 ADD THIS LINE HERE TO FIX MCOPY
+      evmVersion: 'cancun',
+      optimizer: { enabled:true, runs:200 },
+      viaIR:     true,
     },
   },
+
   networks: {
-    // Local development
+    // ── Polygon PoS Mainnet (Chain ID: 137) ──────────────────────
+    polygon: {
+      url:      POLYGON_RPC,
+      chainId:  137,
+      accounts: accounts.length > 0 ? accounts : ['0x0000000000000000000000000000000000000000000000000000000000000001'],
+      gasPrice: 'auto',  // Polygon has dynamic gas pricing (EIP-1559)
+    },
+
+    // ── Polygon Mumbai (Legacy testnet — deprecated April 2024) ───
+    // mumbai: { url:'https://rpc-mumbai.maticvigil.com', chainId:80001 },
+    // NOTE: Mumbai was deprecated. Amoy replaced it but also no longer needed for mainnet.
+
+    // ── Local development (Hardhat node) ──────────────────────────
     hardhat: {
       chainId: 31337,
     },
-    // Polygon Amoy Testnet
-    amoy: {
-      url: process.env.POLYGON_AMOY_RPC || "https://rpc-amoy.polygon.technology/",
-      chainId: 80002,
-      accounts: process.env.RELAYER_PRIVATE_KEY
-        ? [process.env.RELAYER_PRIVATE_KEY]
-        : [],
-      gasPrice: "auto",
-    },
   },
+
   etherscan: {
     apiKey: {
-      polygonAmoy: process.env.POLYGONSCAN_API_KEY || "YOUR_POLYGONSCAN_KEY",
+      polygon: POLYGONSCAN_KEY,  // Get free key at polygonscan.com/apis
     },
-    customChains: [
-      {
-        network: "polygonAmoy",
-        chainId: 80002,
-        urls: {
-          apiURL:     "https://api-amoy.polygonscan.com/api",
-          browserURL: "https://amoy.polygonscan.com",
-        },
-      },
-    ],
   },
+
+  gasReporter: {
+    enabled:     process.env.REPORT_GAS === 'true',
+    currency:    'USD',
+    coinmarketcap: process.env.CMC_API_KEY,
+    token:       'MATIC',
+    gasPriceApi: 'https://api.polygonscan.com/api?module=proxy&action=eth_gasPrice',
+  },
+
   paths: {
-    sources:   "./src",
-    tests:     "./test",
-    cache:     "./cache",
-    artifacts: "./artifacts",
+    sources:   './src',
+    tests:     './test',
+    cache:     './cache',
+    artifacts: './artifacts',
   },
-};
+}

@@ -52,8 +52,14 @@ const config: Config = {
         'fade-in': 'fade-in 0.5s ease-out',
         'slide-up': 'slide-up 0.4s ease-out',
         'slide-right': 'slide-right 0.3s ease-out',
+        'border-beam': 'border-beam calc(var(--duration)*1s) infinite linear',
       },
       keyframes: {
+        'border-beam': {
+          '100%': {
+            offsetDistance: '100%',
+          },
+        },
         'pulse-green': {
           '0%, 100%': { opacity: '1', transform: 'scale(1)' },
           '50%': { opacity: '0.5', transform: 'scale(1.1)' },

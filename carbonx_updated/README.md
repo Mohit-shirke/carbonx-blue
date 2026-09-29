@@ -1,6 +1,6 @@
 # 🌿 CarbonX — Blockchain Blue Carbon Registry & MRV System
 
-> **Production-ready, open-source platform** for verifiable blue carbon credit issuance, AI satellite MRV validation, and transparent on-chain retirement — built on Polygon Amoy with ERC-1155, Next.js, and Stripe.
+> **Production-ready, open-source platform** for verifiable blue carbon credit issuance, AI satellite MRV validation, and transparent on-chain retirement — built on Polygon Mainnet (Chain ID: 137) with ERC-1155, Next.js, and Stripe.
 
 ---
 
@@ -10,7 +10,7 @@
 carbonx/
 ├── frontend/          # Next.js 14 App Router · Tailwind · Wagmi · Framer Motion
 ├── backend/           # Express.js Modular API · JWT Auth · Stripe · Web3 Relayer
-├── contracts/         # Solidity ERC-1155 · Hardhat · Polygon Amoy
+├── contracts/         # Solidity ERC-1155 · Hardhat · Polygon PoS Mainnet
 └── docker-compose.yml # Full local stack (Postgres + Backend + Frontend)
 ```
 
@@ -23,8 +23,8 @@ carbonx/
 | **1 – Theme Engine** | System-aware dark/light with time-based automation (6PM→6AM dark), localStorage override, Framer Motion tactile feedback on every button |
 | **2 – RBAC Auth** | Split-screen login/register with animated stat counter, 4-persona role selection (NGO / Validator / Corporate / Auditor), JWT in HTTP-only cookies |
 | **3 – Dashboard** | Interactive SVG Sundarbans mangrove map with hover telemetry modals (NDVI, tree density, credits available) + live block-explorer transaction ticker |
-| **4 – Marketplace** | Scannable project cards with Verra/CCTS badges, dual-channel checkout drawer (Web3 MATIC + Stripe Card sandbox), live gas estimator |
-| **5 – Ledger** | On-chain ERC-1155 burn via `retireCredits()`, immutable retirement records table, OKLink explorer links, retirement certificate API |
+| **4 – Marketplace** | Scannable project cards with Verra/CCTS badges, multi-rail checkout drawer (Polygon Web3 MATIC/USDC + Stripe Live Card + UPI Instant QR), live gas estimator |
+| **5 – Ledger** | On-chain ERC-1155 burn via `retireCredits()`, immutable retirement records table, Polygonscan explorer links, retirement certificate API |
 | **6 – AI MRV Pipeline** | Server-Sent Events streaming terminal, Sentinel-2 simulation steps, PostgreSQL status update to `VERIFIED`, SSE-compatible validator dashboard |
 | **7 – AI Chatbot** | Floating FAB with glow ring, keyword-matched response engine, guided marketplace tour (highlights + scroll), animated typing dots |
 
@@ -36,8 +36,8 @@ carbonx/
 
 - Node.js 20+
 - Docker & Docker Compose (for local Postgres)
-- MetaMask browser extension
-- Polygon Amoy testnet MATIC — get free tokens at [faucet.polygon.technology](https://faucet.polygon.technology/)
+- Web3 Wallet (MetaMask, Coinbase Wallet, WalletConnect) on Polygon Mainnet
+- POL / MATIC or USDC on Polygon Mainnet (Chain ID: 137)
 
 ---
 
@@ -101,7 +101,7 @@ npx knex migrate:latest
 
 ---
 
-### 5. Deploy Smart Contract (Optional — Amoy Testnet)
+### 5. Deploy Smart Contract (Polygon PoS Mainnet)
 
 ```bash
 cd contracts
@@ -112,8 +112,8 @@ cp backend/.env.example .env
 # Compile
 npx hardhat compile
 
-# Deploy to Amoy
-npx hardhat run scripts/deploy.js --network amoy
+# Deploy to Polygon Mainnet
+npx hardhat run scripts/deploy.js --network polygon
 
 # Copy the deployed address into backend/.env and frontend/.env.local
 # CONTRACT_ADDRESS=0x…
@@ -236,42 +236,40 @@ cd backend && npm test
 | Icons | Lucide React |
 | Web3 Client | Wagmi v2 + Viem v2 |
 | Web3 Modal | AppKit (Web3Modal v5) |
-| Blockchain | Polygon Amoy Testnet (Chain ID: 80002) |
+| Blockchain | Polygon PoS Mainnet (Chain ID: 137) |
 | Smart Contract | Solidity 0.8.20 + OpenZeppelin v5 |
 | Contract Tooling | Hardhat v2 |
 | Backend | Node.js + Express.js |
 | Database | PostgreSQL 16 + Knex.js |
 | Auth | bcryptjs + JWT (HTTP-only cookies) |
-| Payments | Stripe Node SDK v16 + Stripe Elements |
+| Payments | Multi-Rail: Stripe Live + Instant UPI + Web3 USDC/MATIC |
 | ORM/QueryBuilder | Knex.js |
 | Containerization | Docker + Docker Compose |
 
 ---
 
-## Stripe Testing
+## Production Payment Rails
 
-Use these test card numbers in the Fiat checkout tab:
+CarbonX supports 3 instant settlement rails:
 
-| Card | Result |
-|------|--------|
-| `4242 4242 4242 4242` | Payment succeeds → triggers mint |
-| `4000 0000 0000 0002` | Card declined |
-| `4000 0025 0000 3155` | Requires 3D Secure authentication |
-
-Expiry: any future date · CVC: any 3 digits · ZIP: any 5 digits
+| Rail | Settlement | Description |
+|------|------------|-------------|
+| **Web3 (MATIC / USDC)** | Instant on-chain (Chain 137) | Direct ERC-1155 smart contract minting via MetaMask/Coinbase |
+| **Card (USD / Global)** | Stripe Live Gateway | 256-bit SSL encrypted PCI-DSS Level 1 processing (Visa, Mastercard, Amex, Apple Pay) |
+| **UPI & NetBanking** | Instant QR / VPA | Zero-fee UPI payments (Google Pay, PhonePe, Paytm, BHIM, NetBanking) |
 
 ---
 
-## Wallet Setup (MetaMask — Polygon Amoy)
+## Wallet Setup (MetaMask — Polygon Mainnet)
 
-1. Open MetaMask → Add Network
-2. Network Name: `Polygon Amoy Testnet`
-3. RPC URL: `https://rpc-amoy.polygon.technology/`
-4. Chain ID: `80002`
-5. Symbol: `MATIC`
-6. Explorer: `https://www.oklink.com/amoy`
+1. Open MetaMask → Network Selection
+2. Network Name: `Polygon Mainnet`
+3. RPC URL: `https://polygon-rpc.com`
+4. Chain ID: `137`
+5. Symbol: `POL` (or `MATIC`)
+6. Explorer: `https://polygonscan.com`
 
-Or — CarbonX will prompt you to switch automatically when you connect on the wrong network.
+Or — CarbonX will prompt you to switch automatically when you connect on another network.
 
 ---
 

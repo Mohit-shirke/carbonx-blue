@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /**
  * @title  CarbonCredit
- * @notice ERC-1155 Blue Carbon Registry on Polygon Amoy Testnet
+ * @notice ERC-1155 Blue Carbon Registry on Polygon Mainnet (Chain ID: 137)
  * @dev    Each project maps to a unique ERC-1155 token ID.
  *         Flow: proposeProject → verifyProject → mintCarbonCredits → retireCredits
  *

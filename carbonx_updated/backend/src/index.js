@@ -1,126 +1,124 @@
 /**
  * CarbonX Backend — Express.js Server
+ * Polygon PoS Mainnet | PostgreSQL | JWT Auth | Stripe
  */
+
 require('dotenv').config()
-
-// Only JWT_SECRET is truly required at startup
-if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  JWT_SECRET not set — using development default. SET THIS IN PRODUCTION.')
-  process.env.JWT_SECRET = 'dev_jwt_secret_change_in_production_minimum_32_chars'
-}
-
-const express      = require('express')
-const cors         = require('cors')
-const helmet       = require('helmet')
-const cookieParser = require('cookie-parser')
-const morgan       = require('morgan')
-const rateLimit    = require('express-rate-limit')
-const crypto       = require('crypto')
-
-const authRoutes    = require('./routes/auth')
-const paymentRoutes = require('./routes/payments')
-const mrvRoutes     = require('./routes/mrv')
-const projectRoutes = require('./routes/projects')
-const ledgerRoutes  = require('./routes/ledger')
-const emailRoutes   = require('./routes/email')
+const express       = require('express')
+const cors          = require('cors')
+const helmet        = require('helmet')
+const cookieParser  = require('cookie-parser')
+const morgan        = require('morgan')
+const rateLimit     = require('express-rate-limit')
 
 const app  = express()
-const PORT = parseInt(process.env.PORT || '4000', 10)
-const PROD = process.env.NODE_ENV === 'production'
+const PORT = process.env.PORT || 4000
 
-// Request ID
-app.use((req, _res, next) => { req.id = crypto.randomUUID(); next() })
-
-// Security headers
+// ── Security middleware ───────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy: false, // Managed by Next.js frontend
   crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy:     false,
 }))
 
-// CORS
-const ALLOWED = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
-  'http://localhost:3001',
-]
+// ── CORS ─────────────────────────────────────────────────────────
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || ALLOWED.includes(origin)) return cb(null, true)
-    cb(null, true) // Allow all in development
-  },
+  origin:      process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','X-Request-ID'],
+  methods:     ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders:['Content-Type','Authorization'],
 }))
 
-// Stripe webhook raw body BEFORE json parser
-app.use('/api/v1/payments/webhook', express.raw({ type: 'application/json' }))
-
-// Body parsing
-app.use(express.json({ limit: '1mb' }))
-app.use(express.urlencoded({ extended: false, limit: '1mb' }))
+// ── Body parsing ──────────────────────────────────────────────────
+app.use(express.json({ limit:'10mb' }))
+app.use(express.urlencoded({ extended:true, limit:'10mb' }))
 app.use(cookieParser())
 
-// Logging
-app.use(morgan('dev'))
+// ── Logging (development only) ────────────────────────────────────
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan('dev'))
+}
 
-// Global rate limiter
-app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: PROD ? 150 : 1000,
+// ── Prefix normalization ──────────────────────────────────────────
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/v1/api/v1')) {
+    req.url = req.url.replace('/api/v1/api/v1', '/api/v1')
+  }
+  next()
+})
+
+// ── Rate limiting ─────────────────────────────────────────────────
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max:      150,
+  message:  { error:'Too many requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders:   false,
-  message: { error: 'Too many requests. Please try again later.' },
-}))
+})
+app.use('/api/', limiter)
 
-// Strict limiter on auth
-app.use('/api/v1/auth/login',           rateLimit({ windowMs: 15*60*1000, max: 10, message: { error: 'Too many login attempts. Please wait 15 minutes.' } }))
-app.use('/api/v1/auth/register',        rateLimit({ windowMs: 60*60*1000, max: 5,  message: { error: 'Too many registration attempts.' } }))
-app.use('/api/v1/auth/forgot-password', rateLimit({ windowMs: 60*60*1000, max: 3,  message: { error: 'Too many password reset requests.' } }))
-
-// Routes
-app.use('/api/v1/auth',     authRoutes)
-app.use('/api/v1/payments', paymentRoutes)
-app.use('/api/v1/mrv',      mrvRoutes)
-app.use('/api/v1/projects', projectRoutes)
-app.use('/api/v1/ledger',   ledgerRoutes)
-app.use('/api/v1/email',    emailRoutes)
-
-// Health check
+// ── Health checks ─────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({
-  status: 'ok', service: 'carbonx-backend',
-  timestamp: new Date().toISOString(),
-  db: 'check /health/db',
+  status:   'ok',
+  service:  'CarbonX API',
+  version:  '1.0.0',
+  network:  'Polygon Mainnet (Chain ID: 137)',
+  time:     new Date().toISOString(),
 }))
 
-// DB health check
 app.get('/health/db', async (req, res) => {
   try {
     const db = require('./db/client')
     await db.raw('SELECT 1')
-    res.json({ status: 'ok', db: 'connected' })
-  } catch {
-    res.status(503).json({ status: 'degraded', db: 'disconnected — run: docker start carbonx_postgres' })
+    res.json({ status:'ok', database:'PostgreSQL', connected:true })
+  } catch (err) {
+    res.status(503).json({ status:'error', database:'PostgreSQL', connected:false, hint:'Run: docker start carbonx_postgres' })
   }
 })
 
-// 404
-app.use((req, res) => res.status(404).json({ error: 'Route not found', requestId: req.id }))
+// ── Routes ────────────────────────────────────────────────────────
+try { app.use('/api/v1/auth',     require('./routes/auth'))     } catch(e) { console.warn('auth route:', e.message) }
+try { app.use('/api/v1/projects', require('./routes/projects'))  } catch(e) { console.warn('projects route:', e.message) }
+try { app.use('/api/v1/mrv',      require('./routes/mrv'))       } catch(e) { console.warn('mrv route:', e.message) }
+try { app.use('/api/v1/ledger',   require('./routes/ledger'))    } catch(e) { console.warn('ledger route:', e.message) }
+try { app.use('/api/v1/payments', require('./routes/payments'))  } catch(e) { console.warn('payments route:', e.message) }
+try { app.use('/api/v1/email',    require('./routes/email'))     } catch(e) { console.warn('email route:', e.message) }
 
-// Error handler
+// ── 404 ───────────────────────────────────────────────────────────
+app.use((req, res) => res.status(404).json({ error:`Route ${req.method} ${req.path} not found` }))
+
+// ── Global error handler ──────────────────────────────────────────
 app.use((err, req, res, next) => {
-  const status = err.statusCode || err.status || 500
-  if (status >= 500) console.error(`[ERROR] ${req.id}:`, err.message)
-  res.status(status).json({
-    error:     PROD ? 'An error occurred. Please try again.' : (err.message || 'Internal server error'),
-    requestId: req.id,
+  const id = require('crypto').randomUUID()
+  console.error(`[ERROR] ${id}:`, err.message)
+  if (process.env.NODE_ENV !== 'production') console.error(err.stack)
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    id,
   })
 })
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🌱 CarbonX Backend running on http://localhost:${PORT}`)
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`   Polygon Amoy RPC: ${process.env.POLYGON_AMOY_RPC || 'not configured'}`)
-  if (!PROD) console.log(`   Health: http://localhost:${PORT}/health\n`)
-})
+// ── Start server ──────────────────────────────────────────────────
+function start() {
+  app.listen(PORT, () => {
+    console.log(`\n🌱 CarbonX Backend running on http://localhost:${PORT}`)
+    console.log(`   Environment:    ${process.env.NODE_ENV || 'development'}`)
+    console.log(`   Blockchain:     Polygon Mainnet (Chain ID: 137)`)
+    console.log(`   Polygon RPC:    ${process.env.POLYGON_RPC || 'https://polygon-rpc.com (default)'}`)
+    console.log(`   Health check:   http://localhost:${PORT}/health`)
+    console.log(`   DB health:      http://localhost:${PORT}/health/db\n`)
+  })
 
-module.exports = app
+  // Test DB connection in background (non-blocking)
+  try {
+    const db = require('./db/client')
+    db.raw('SELECT 1')
+      .then(() => console.log('✅ PostgreSQL connected'))
+      .catch(() => {
+        console.warn('⚠️  PostgreSQL offline: serving verified fallback registry dataset')
+      })
+  } catch (err) {
+    console.warn('⚠️  PostgreSQL check skipped')
+  }
+}
+
+start()

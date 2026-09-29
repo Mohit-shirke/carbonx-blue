@@ -1,159 +1,321 @@
 'use client'
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Sun, Moon, Leaf, Menu, X, BarChart2, ShoppingBag, FileCheck, Zap, DollarSign, Info, Mail, User, BookOpen, MessageSquare, Calculator, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { useTheme } from '@/hooks/useTheme'
-import { WalletConnectButton } from '@/components/web3/WalletConnectButton'
-import { GlobalSearch } from '@/components/ui/GlobalSearch'
 import { usePathname } from 'next/navigation'
-import { clsx } from 'clsx'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  Leaf, Search, Sun, Moon, Menu, X, ChevronDown,
+  BarChart2, ShoppingCart, Satellite, Lock, DollarSign,
+  Calculator, Star, Info, Phone, Shield, AlertTriangle,
+  FileText, BookOpen, Code2, TrendingUp, Microscope,
+  Users, Globe, User, Sparkles, LogOut
+} from 'lucide-react'
+import { useTheme } from '@/hooks/useTheme'
+import { useAuth } from '@/hooks/useAuth'
+import { WalletConnectButton } from '@/components/web3/WalletConnectButton'
 
-const NAV_LINKS = [
-  { href:'/dashboard',   label:'Dashboard',   icon:BarChart2   },
-  { href:'/marketplace', label:'Marketplace', icon:ShoppingBag },
-  { href:'/mrv',         label:'MRV',         icon:FileCheck   },
-  { href:'/ledger',      label:'Ledger',       icon:Zap         },
-  { href:'/pricing',     label:'Pricing',      icon:DollarSign  },
+const NAV_MAIN = [
+  { href:'/dashboard',   label:'Dashboard',  icon:BarChart2    },
+  { href:'/marketplace', label:'Marketplace',icon:ShoppingCart },
+  { href:'/mrv',         label:'MRV',        icon:Satellite    },
+  { href:'/ledger',      label:'Ledger',     icon:Lock         },
+  { href:'/pricing',     label:'Pricing',    icon:DollarSign   },
 ]
 
-const MORE_LINKS = [
-  { href:'/calculator', label:'Carbon Calculator', icon:Calculator  },
-  { href:'/blog',       label:'Blog',              icon:BookOpen    },
-  { href:'/feedback',   label:'Feedback',          icon:MessageSquare },
-  { href:'/about',      label:'About',             icon:Info        },
-  { href:'/contact',    label:'Contact',           icon:Mail        },
-  { href:'/profile',    label:'My Profile',        icon:User        },
+const NAV_MORE = [
+  { group:'Tools',
+    items:[
+      { href:'/profile',    label:'User Profile',        icon:User,          desc:'Credits owned, retirements, KYC & wallet'   },
+      { href:'/calculator', label:'Carbon Calculator',   icon:Calculator,    desc:'Calculate your CO₂ footprint'              },
+      { href:'/propose',    label:'Propose a Project',   icon:Leaf,          desc:'BEE FR05.001 eligibility wizard'            },
+      { href:'/esg',        label:'ESG Reporting',       icon:FileText,      desc:'ISO 14064, GHG Protocol, BRSR, TCFD, GRI'  },
+    ]
+  },
+  { group:'Registry',
+    items:[
+      { href:'/passport',   label:'Project Passport',   icon:Globe,         desc:'Complete immutable project records'         },
+      { href:'/verifier',   label:'Verifier Portal',    icon:Shield,        desc:'ACVA/VVB independent verification'          },
+      { href:'/admin',      label:'Risk Console',       icon:AlertTriangle, desc:'Portfolio risk monitoring dashboard'        },
+      { href:'/grievance',  label:'Grievance Mechanism',icon:Users,         desc:'Report concerns (ICVCM compliant)'          },
+    ]
+  },
+  { group:'Knowledge',
+    items:[
+      { href:'/innovations',label:'5 World Innovations',icon:Sparkles,     desc:'Novel research & patent-grade proofs'       },
+      { href:'/research',   label:'Research & Citations',icon:Microscope,   desc:'15 peer-reviewed references + BibTeX'       },
+      { href:'/api-docs',   label:'API Documentation',  icon:Code2,        desc:'REST API reference for developers'          },
+      { href:'/blog',       label:'Blog',               icon:BookOpen,     desc:'Carbon science and market insights'         },
+    ]
+  },
+  { group:'Support',
+    items:[
+      { href:'/about',      label:'About Us',           icon:Info,         desc:'Mission, team, and values'                  },
+      { href:'/feedback',   label:'Feedback',           icon:Star,         desc:'Rate and review the platform'               },
+      { href:'/contact',    label:'Contact',            icon:Phone,        desc:'Get in touch with our team'                 },
+    ]
+  },
+]
+
+// Flat list for search
+const ALL_PAGES = [
+  ...NAV_MAIN.map(n => ({ href:n.href, label:n.label, desc:'', icon: n.icon })),
+  ...NAV_MORE.flatMap(g => g.items.map(n => ({ href:n.href, label:n.label, desc:n.desc, icon: n.icon }))),
+  { href:'/auth',    label:'Sign In / Register',  desc:'', icon: User },
+  { href:'/profile', label:'My Profile',           desc:'', icon: User },
+  { href:'/terms',   label:'Terms of Service',     desc:'', icon: FileText },
+  { href:'/privacy', label:'Privacy Policy',       desc:'', icon: Shield },
 ]
 
 export function Navbar() {
-  const { theme, toggleTheme, isAutoMode } = useTheme()
-  const [open, setOpen]         = useState(false)
-  const [moreOpen, setMoreOpen] = useState(false)
-  const pathname = usePathname()
+  const pathname            = usePathname()
+  const { theme, toggleTheme } = useTheme()
+  const { user, logout }    = useAuth()
+  const [moreOpen, setMore] = useState(false)
+  const [menuOpen, setMenu] = useState(false)
+  const [searchOpen, setSO] = useState(false)
+  const [query, setQuery]   = useState('')
+  const searchRef           = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { 
+    setMenu(false); 
+    setMore(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey||e.ctrlKey) && e.key==='k') { e.preventDefault(); setSO(v=>!v) }
+      if (e.key==='Escape') { setSO(false); setMore(false) }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [])
+
+  useEffect(() => { if (searchOpen) setTimeout(() => searchRef.current?.focus(), 100) }, [searchOpen])
+
+  const filtered = ALL_PAGES.filter(p =>
+    !query || p.label.toLowerCase().includes(query.toLowerCase()) || p.desc.toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 8)
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 sm:h-16 glass border-b border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-full flex items-center justify-between gap-2">
+      <nav className="fixed top-0 left-0 right-0 z-[200] h-14 sm:h-16 bg-[var(--card)]/85 backdrop-blur-xl border-b border-[var(--border)] shadow-sm flex items-center px-3 sm:px-4 lg:px-6 transition-all duration-200">
+        <div className="flex items-center gap-3 sm:gap-5 w-full max-w-7xl mx-auto">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0" onClick={() => setOpen(false)}>
-            <motion.div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary-500 flex items-center justify-center"
-              whileHover={{scale:1.05}} whileTap={{scale:0.95}}>
-              <Leaf className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white"/>
-            </motion.div>
-            <span className="font-bold text-base sm:text-lg tracking-tight text-[var(--text)]">
+          <Link href="/" className="flex items-center gap-2 shrink-0 min-h-[44px] min-w-0 px-1">
+            <div className="w-8 h-8 rounded-lg bg-primary-500 flex items-center justify-center shrink-0">
+              <Leaf className="w-4 h-4 text-white"/>
+            </div>
+            <span className="font-bold text-sm sm:text-base text-[var(--text)] hidden xs:block">
               Carbon<span className="text-primary-500">X</span>
             </span>
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center gap-0.5">
-            {NAV_LINKS.map(({ href, label, icon:Icon }) => {
-              const active = pathname?.startsWith(href)
-              return (
-                <Link key={href} href={href} className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                  active ? 'bg-primary-500/10 text-primary-500' : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]'
-                )}>
-                  <Icon className="w-3.5 h-3.5"/>{label}
-                </Link>
-              )
-            })}
+          <div className="hidden lg:flex items-center gap-0.5">
+            {NAV_MAIN.map(({ href, label, icon:Icon }) => (
+              <Link key={href} href={href}
+                className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] ${isActive(href)?'bg-primary-500/10 text-primary-500':'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]'}`}>
+                <Icon className="w-3.5 h-3.5"/>{label}
+              </Link>
+            ))}
 
             {/* More dropdown */}
             <div className="relative">
-              <button onClick={() => setMoreOpen(v => !v)}
-                className={clsx('flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                  MORE_LINKS.some(l => pathname?.startsWith(l.href))
-                    ? 'bg-primary-500/10 text-primary-500'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]')}>
-                More <ChevronDown className={clsx('w-3.5 h-3.5 transition-transform', moreOpen && 'rotate-180')}/>
+              <button onClick={() => setMore(v=>!v)}
+                className={`flex items-center gap-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-all min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${moreOpen?'bg-primary-500/10 text-primary-500':'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]'}`}>
+                More <ChevronDown className={`w-3.5 h-3.5 transition-transform ${moreOpen?'rotate-180':''}`}/>
               </button>
               <AnimatePresence>
                 {moreOpen && (
                   <>
-                    <motion.div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)}/>
+                    <div className="fixed inset-0 z-10" onClick={() => setMore(false)}/>
                     <motion.div
-                      initial={{opacity:0,y:6,scale:0.97}} animate={{opacity:1,y:0,scale:1}}
-                      exit={{opacity:0,y:6,scale:0.97}} transition={{duration:0.15}}
-                      className="absolute right-0 top-full mt-2 w-52 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl overflow-hidden z-20">
-                      {MORE_LINKS.map(({ href, label, icon:Icon }) => (
-                        <Link key={href} href={href} onClick={() => setMoreOpen(false)}
-                          className={clsx('flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors',
-                            pathname?.startsWith(href) ? 'text-primary-500 bg-primary-500/5' : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--border)]')}>
-                          <Icon className="w-4 h-4 shrink-0"/>{label}
-                        </Link>
-                      ))}
+                      initial={{ opacity:0, y:8, scale:0.97 }} animate={{ opacity:1, y:0, scale:1 }}
+                      exit={{ opacity:0, y:8, scale:0.97 }} transition={{ duration:0.15 }}
+                      className="absolute left-0 top-full mt-2 w-[560px] bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden z-20">
+                      <div className="p-3 grid grid-cols-2 gap-x-2">
+                        {NAV_MORE.map(group => (
+                          <div key={group.group} className="space-y-0.5">
+                            <p className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-widest px-2 py-1">{group.group}</p>
+                            {group.items.map(({ href, label, icon:Icon, desc }) => (
+                              <Link key={href} href={href}
+                                className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl hover:bg-[var(--border)] transition-colors group min-h-[44px]">
+                                <div className="w-7 h-7 rounded-lg bg-primary-500/10 flex items-center justify-center shrink-0 group-hover:bg-primary-500/20 transition-colors">
+                                  <Icon className="w-3.5 h-3.5 text-primary-500"/>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold text-[var(--text)] truncate">{label}</p>
+                                  <p className="text-[11px] text-[var(--text-muted)] truncate">{desc}</p>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
                     </motion.div>
                   </>
                 )}
               </AnimatePresence>
             </div>
-          </nav>
+          </div>
 
-          {/* Right actions */}
-          <div className="flex items-center gap-1.5 sm:gap-2 ml-auto lg:ml-0">
-            {/* Global Search */}
-            <div className="hidden sm:block">
-              <GlobalSearch />
+
+          {/* Right side */}
+          <div className="flex items-center gap-1.5 ml-auto">
+            <button onClick={() => setSO(true)}
+              className="hidden sm:flex items-center gap-2 px-3 py-2 border border-[var(--border)] rounded-xl text-sm text-[var(--text-muted)] hover:border-primary-500 hover:text-primary-500 transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              aria-label="Open search">
+              <Search className="w-3.5 h-3.5"/>Search…
+              <span className="text-[11px] bg-[var(--bg)] border border-[var(--border)] px-1.5 py-0.5 rounded-md font-mono">⌘K</span>
+            </button>
+            <button onClick={() => setSO(true)} className="sm:hidden p-2 rounded-lg hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label="Open search">
+              <Search className="w-4 h-4"/>
+            </button>
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme==='dark'?<Sun className="w-4 h-4"/>:<Moon className="w-4 h-4"/>}
+            </button>
+            <div className="hidden sm:flex items-center">
+              <WalletConnectButton compact />
             </div>
-
-            {/* Theme toggle */}
-            <motion.button onClick={toggleTheme} aria-label="Toggle theme"
-              className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text)] hover:border-primary-500 transition-colors"
-              whileHover={{scale:1.015}} whileTap={{scale:0.975}}>
-              <AnimatePresence mode="wait" initial={false}>
-                {theme === 'dark'
-                  ? <motion.span key="moon" initial={{rotate:-90,opacity:0}} animate={{rotate:0,opacity:1}} exit={{rotate:90,opacity:0}} transition={{duration:0.2}}><Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4"/></motion.span>
-                  : <motion.span key="sun"  initial={{rotate:90,opacity:0}}  animate={{rotate:0,opacity:1}} exit={{rotate:-90,opacity:0}} transition={{duration:0.2}}><Sun  className="w-3.5 h-3.5 sm:w-4 sm:h-4"/></motion.span>
-                }
-              </AnimatePresence>
-              {isAutoMode && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-primary-500"/>}
-            </motion.button>
-
-            {/* Wallet */}
-            <div className="hidden sm:block" data-tour="wallet">
-              <WalletConnectButton compact/>
-            </div>
-
-            {/* Hamburger */}
-            <motion.button className="lg:hidden w-8 h-8 rounded-lg border border-[var(--border)] flex items-center justify-center text-[var(--text-muted)]"
-              onClick={() => setOpen(v => !v)} whileTap={{scale:0.95}} aria-label="Menu">
-              {open ? <X className="w-4 h-4"/> : <Menu className="w-4 h-4"/>}
-            </motion.button>
+            {user ? (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 bg-primary-500/10 border border-primary-500/25 hover:bg-primary-500/20 text-primary-600 dark:text-primary-400 text-xs font-semibold px-3 py-2 rounded-xl transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <User className="w-3.5 h-3.5 text-primary-500 shrink-0"/>
+                  <span className="max-w-[100px] truncate">{user.name || 'Member'}</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary-500/20 border border-primary-500/30 uppercase font-bold text-primary-700 dark:text-primary-300">
+                    {user.role}
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Sign Out"
+                  aria-label="Sign Out"
+                  className="p-2.5 rounded-xl hover:bg-rose-500/10 text-[var(--text-muted)] hover:text-rose-500 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <Link href="/auth" className="hidden sm:flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white text-sm font-semibold px-3.5 py-2 rounded-xl transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2">
+                Sign In
+              </Link>
+            )}
+            <button onClick={() => setMenu(v=>!v)} className="lg:hidden p-2 rounded-lg hover:bg-[var(--border)] text-[var(--text-muted)] transition-colors min-h-[44px] min-w-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>
+              {menuOpen?<X className="w-4 h-4"/>:<Menu className="w-4 h-4"/>}
+            </button>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Mobile drawer */}
+
+      {/* Mobile menu */}
       <AnimatePresence>
-        {open && (
-          <>
-            <motion.div className="fixed inset-0 bg-black/40 z-40 lg:hidden"
-              initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={() => setOpen(false)}/>
-            <motion.div
-              className="fixed top-14 left-0 right-0 bottom-0 z-40 lg:hidden bg-[var(--card)] border-t border-[var(--border)] flex flex-col overflow-y-auto"
-              initial={{opacity:0,y:-8}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-8}} transition={{duration:0.2}}>
-              {/* Mobile search */}
-              <div className="p-4 border-b border-[var(--border)]">
-                <GlobalSearch/>
+        {menuOpen && (
+          <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} exit={{ opacity:0, height:0 }}
+            className="fixed top-14 left-0 right-0 z-[190] bg-[var(--card)] border-b border-[var(--border)] overflow-y-auto max-h-[80vh]">
+            <div className="max-w-7xl mx-auto px-4 py-3 space-y-4">
+              {[{ group:'Main', items: NAV_MAIN.map(n=>({...n,desc:''})) }, ...NAV_MORE].map(group => (
+                <div key={group.group}>
+                  <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest px-1 mb-1">{group.group}</p>
+                  <div className="space-y-0.5">
+                    {group.items.map(({ href, label, icon:Icon }) => (
+                      <Link key={href} href={href}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive(href)?'bg-primary-500/10 text-primary-500':'text-[var(--text-muted)] hover:bg-[var(--border)] hover:text-[var(--text)]'}`}>
+                        <Icon className="w-4 h-4 shrink-0"/><span className="text-sm font-medium">{label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="pt-2 border-t border-[var(--border)] flex flex-col gap-2">
+                <div className="flex justify-center pb-1">
+                  <WalletConnectButton />
+                </div>
+                {user ? (
+                  <>
+                    <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-primary-500/10 border border-primary-500/25">
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-primary-500" />
+                        <div>
+                          <p className="text-xs font-bold text-[var(--text)]">{user.name}</p>
+                          <p className="text-[10px] uppercase font-mono text-primary-600 dark:text-primary-400 font-bold">{user.role}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={logout}
+                        className="text-xs text-rose-500 font-medium px-2 py-1 rounded hover:bg-rose-500/10"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                    <Link href="/profile" className="flex items-center justify-center gap-2 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                      My Profile & Holdings
+                    </Link>
+                  </>
+                ) : (
+                  <Link href="/auth" className="flex items-center justify-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                    Sign In / Register
+                  </Link>
+                )}
               </div>
-              <div className="flex-1 p-3 space-y-0.5">
-                {[...NAV_LINKS, ...MORE_LINKS].map(({ href, label, icon:Icon }) => {
-                  const active = pathname?.startsWith(href)
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Search modal */}
+      <AnimatePresence>
+        {searchOpen && (
+          <>
+            <motion.div className="fixed inset-0 bg-black/50 z-[400] backdrop-blur-sm"
+              initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+              onClick={() => { setSO(false); setQuery('') }}/>
+            <motion.div initial={{ opacity:0, scale:0.96, y:-16 }} animate={{ opacity:1, scale:1, y:0 }}
+              exit={{ opacity:0, scale:0.96 }}
+              className="fixed top-[10vh] left-1/2 -translate-x-1/2 w-[calc(100vw-32px)] sm:w-[560px] z-[401] bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex items-center gap-3 p-4 border-b border-[var(--border)]">
+                <Search className="w-4 h-4 text-[var(--text-muted)] shrink-0"/>
+                <input ref={searchRef} value={query} onChange={e=>setQuery(e.target.value)}
+                  placeholder="Search pages, features, projects…"
+                  className="flex-1 bg-transparent text-sm text-[var(--text)] focus:outline-none placeholder:text-[var(--text-muted)]"/>
+                <button onClick={() => { setSO(false); setQuery('') }} className="text-[var(--text-muted)] hover:text-[var(--text)] transition-colors">
+                  <X className="w-4 h-4"/>
+                </button>
+              </div>
+              <div className="divide-y divide-[var(--border)] max-h-[60vh] overflow-y-auto">
+                {filtered.map(p => {
+                  const PageIcon = p.icon || Leaf
                   return (
-                    <Link key={href} href={href} onClick={() => setOpen(false)}
-                      className={clsx('flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors',
-                        active ? 'bg-primary-500/10 text-primary-500' : 'text-[var(--text)] hover:bg-[var(--border)]')}>
-                      <Icon className="w-5 h-5 shrink-0"/>{label}
+                    <Link key={p.href} href={p.href} onClick={() => { setSO(false); setQuery('') }}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--border)] transition-colors">
+                      <div className="w-8 h-8 rounded-lg bg-primary-500/10 flex items-center justify-center shrink-0">
+                        <PageIcon className="w-3.5 h-3.5 text-primary-500"/>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[var(--text)]">{p.label}</p>
+                        {p.desc && <p className="text-[10px] text-[var(--text-muted)] truncate">{p.desc}</p>}
+                      </div>
+                      <p className="ml-auto text-[10px] text-[var(--text-muted)] font-mono shrink-0">{p.href}</p>
                     </Link>
                   )
                 })}
+                {filtered.length === 0 && (
+                  <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">No results for "{query}"</div>
+                )}
               </div>
-              <div className="p-4 border-t border-[var(--border)]" data-tour="wallet">
-                <WalletConnectButton/>
+              <div className="px-4 py-2 border-t border-[var(--border)] flex items-center gap-4 text-[10px] text-[var(--text-muted)]">
+                <span>↑↓ Navigate</span><span>↵ Select</span><span>Esc Close</span>
               </div>
             </motion.div>
           </>

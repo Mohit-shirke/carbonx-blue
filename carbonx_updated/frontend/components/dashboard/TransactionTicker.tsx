@@ -58,7 +58,7 @@ export function TransactionTicker() {
       <div className="flex items-center gap-2 px-4 py-3.5 border-b border-[var(--border)] shrink-0">
         <span className="w-2 h-2 rounded-full bg-primary-500 animate-pulse" />
         <h2 className="font-semibold text-sm text-[var(--text)]">Live Block Feed</h2>
-        <span className="ml-auto text-xs text-[var(--text-muted)] font-mono">Amoy Testnet</span>
+        <span className="ml-auto text-xs text-primary-400 font-mono">Polygon Mainnet (Chain 137)</span>
         <Zap className="w-3.5 h-3.5 text-primary-500" />
       </div>
 

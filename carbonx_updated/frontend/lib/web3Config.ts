@@ -1,123 +1,90 @@
 /**
- * Web3 configuration – Wagmi v2 + AppKit (Web3Modal) targeting Polygon Amoy Testnet
- * Chain ID: 80002 | RPC: https://rpc-amoy.polygon.technology/
+ * CarbonX Web3 — Polygon PoS Mainnet (Chain ID: 137)
+ * SSR-safe: no top-level side effects
  */
-
 import { createConfig, http } from 'wagmi'
-import { defineChain } from 'viem'
-import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors'
+import { polygon }            from 'wagmi/chains'
+import { metaMask, coinbaseWallet, walletConnect, injected, safe, mock } from 'wagmi/connectors'
 
-// ─── Polygon Amoy Testnet Definition ─────────────────────────────
-export const polygonAmoy = defineChain({
-  id: 80002,
-  name: 'Polygon Amoy',
-  nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://rpc-amoy.polygon.technology/'] },
-    public:  { http: ['https://rpc-amoy.polygon.technology/'] },
-  },
-  blockExplorers: {
-    default: {
-      name: 'OKLink',
-      url: 'https://www.oklink.com/amoy',
+import { createWeb3Modal }    from '@web3modal/wagmi/react'
+
+export { polygon as polygonMainnet }
+
+const rawProjectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID || ''
+const isValidWcId = Boolean(rawProjectId && rawProjectId.length >= 20 && rawProjectId !== 'sample_project_id')
+export const projectId = isValidWcId ? rawProjectId : '3a8170812b534d0ff9d794f19a901d64'
+
+const connectorsList: any[] = [
+  metaMask({
+    dappMetadata: {
+      name: 'CarbonX Blue Carbon Registry',
+      url: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
     },
-  },
-  testnet: true,
-})
+  }),
+  coinbaseWallet({
+    appName: 'CarbonX Blue Carbon Registry',
+  }),
+  injected({
+    target: 'phantom',
+    shimDisconnect: true,
+  }),
+  injected({
+    shimDisconnect: true,
+  }),
+  safe(),
+  mock({
+    accounts: [
+      '0x71C8360f38bb89f929cD95f46408Db19BcfEB42e',
+      '0x2546BcD3c84621e976D8185a91A922aE77ECEc30',
+    ],
+  }),
+]
 
-// ─── WalletConnect Project ID ─────────────────────────────────────
-const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? 'YOUR_WC_PROJECT_ID'
+if (typeof window !== 'undefined') {
+  connectorsList.push(
+    walletConnect({
+      projectId,
+      showQrModal: true,
+    })
+  )
+}
 
-// ─── Wagmi Config ─────────────────────────────────────────────────
 export const wagmiConfig = createConfig({
-  chains: [polygonAmoy],
-  connectors: [
-    injected({ target: 'metaMask' }),
-    walletConnect({ projectId }),
-    coinbaseWallet({ appName: 'CarbonX' }),
-  ],
-  transports: {
-    [polygonAmoy.id]: http('https://rpc-amoy.polygon.technology/'),
-  },
+  chains:     [polygon],
+  connectors: connectorsList,
+  transports: { [polygon.id]: http(process.env.NEXT_PUBLIC_POLYGON_RPC || 'https://polygon-rpc.com') },
   ssr: true,
 })
 
-// ─── AppKit (Web3Modal) Initialization ───────────────────────────
-// Called once from Web3Providers on client mount
+export let web3ModalInstance: any = null
+
 export function initWeb3Modal() {
-  // Dynamic import avoids SSR issues with Web3Modal
-  if (typeof window === 'undefined') return
-  import('@web3modal/wagmi/react').then(({ createWeb3Modal }) => {
-    createWeb3Modal({
+  if (typeof window === 'undefined') return null
+  if (web3ModalInstance) return web3ModalInstance
+  try {
+    web3ModalInstance = createWeb3Modal({
       wagmiConfig,
       projectId,
-      // @ts-ignore – chains type mismatch between versions is safe to ignore
-      chains: [polygonAmoy],
+      defaultChain: polygon,
       themeMode: 'dark',
-      themeVariables: {
-        '--w3m-accent': '#10B981',
-        '--w3m-border-radius-master': '12px',
-      },
+      themeVariables: { '--w3m-accent':'#10B981', '--w3m-border-radius-master':'8px' },
     })
-  })
+  } catch (err) {
+    console.warn('Web3Modal init warning:', err)
+  }
+  return web3ModalInstance
 }
 
-// ─── ERC-1155 Contract ABI (Carbon Credits) ──────────────────────
-export const CARBON_CREDIT_ABI = [
-  {
-    name: 'proposeProject',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'metadataURI',   type: 'string'  },
-      { name: 'targetCredits', type: 'uint256' },
-    ],
-    outputs: [{ name: 'projectId', type: 'uint256' }],
-  },
-  {
-    name: 'verifyProject',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'projectId', type: 'uint256' },
-      { name: 'ndviScore', type: 'uint8'   },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'mintCarbonCredits',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'projectId', type: 'uint256' },
-      { name: 'recipient', type: 'address' },
-      { name: 'amount',    type: 'uint256' },
-    ],
-    outputs: [],
-  },
-  {
-    name: 'retireCredits',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'tokenId',        type: 'uint256' },
-      { name: 'amount',         type: 'uint256' },
-      { name: 'retirementNote', type: 'string'  },
-    ],
-    outputs: [{ name: 'retirementId', type: 'uint256' }],
-  },
-  {
-    name: 'balanceOf',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'account', type: 'address' },
-      { name: 'id',      type: 'uint256' },
-    ],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const
+// Synchronously initialize on client module evaluation
+if (typeof window !== 'undefined') {
+  initWeb3Modal()
+}
 
-export const CARBON_CREDIT_ADDRESS =
+export const CHAIN_ID        = 137
+export const EXPLORER_URL    = 'https://polygonscan.com'
+export const OKLINK_URL      = 'https://www.oklink.com/polygon'
+export const NETWORK_NAME    = 'Polygon'
+export const NATIVE_CURRENCY = 'POL'
+export const CONTRACT_ADDRESS =
   (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS as `0x${string}`) ??
   '0x0000000000000000000000000000000000000000'

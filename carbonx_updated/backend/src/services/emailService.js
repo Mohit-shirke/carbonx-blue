@@ -155,7 +155,7 @@ async function sendPurchaseConfirmationEmail({ email, fullName, project, amount,
       <div class="card-row"><span class="label">Transaction Hash</span><span class="value" style="font-family:monospace;font-size:11px;">${txHash || 'Pending…'}</span></div>
       <div class="card-row"><span class="label">Date</span><span class="value">${new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}</span></div>
     </div>
-    <p>Your credits will appear in your wallet within 1–2 minutes. You can view them on the Polygon Amoy blockchain explorer.</p>
+    <p>Your credits will appear in your wallet within 1–2 minutes. You can view them on the Polygon Mainnet blockchain explorer.</p>
     <a class="btn" href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/ledger">View in Ledger →</a>
     <p style="margin-top:16px;font-size:12px;color:#94A3B8;">
       When you're ready to claim your carbon offset, visit the Ledger page to retire your credits and generate an on-chain retirement certificate.
@@ -179,7 +179,7 @@ async function sendRetirementEmail({ email, fullName, project, amount, note, txH
       <div class="card-row"><span class="label">Date</span><span class="value">${new Date().toLocaleDateString('en-IN', { dateStyle: 'long' })}</span></div>
     </div>
     <p>This retirement is <strong>immutable and publicly verifiable</strong> on the Polygon blockchain. The credits can never be reused or transferred again.</p>
-    <a class="btn" href="https://www.oklink.com/amoy/tx/${txHash || ''}">Verify on OKLink Explorer →</a>
+    <a class="btn" href="https://polygonscan.com/tx/${txHash || ''}">Verify on Polygonscan Explorer →</a>
     <a class="btn" href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/ledger" style="background:#0F172A;margin-left:8px;">View Ledger →</a>
     <div class="card" style="margin-top:16px;background:#ECFDF5;border-color:#10B981;">
       <p style="margin:0;font-size:12px;color:#065F46;">
